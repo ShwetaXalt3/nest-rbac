@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Resizer Tool (MP4)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            display: block;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .video-container {
+            margin: 20px 0;
+            text-align: center;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        video {
+            max-width: 100%;
+            max-height: 300px;
+            border: 1px solid #ddd;
+            background-color: #000;
+        }
+        #video-message {
+            color: #666;
+            font-style: italic;
+        }
+        .info {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        .controls input {
+            flex: 1;
+        }
+        #status {
+            text-align: center;
+            margin-top: 10px;
+            padding: 5px;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        .progress {
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Resizer Tool (MP4)</h1>
+        
+        <div class="input-group">
+            <label for="video-upload">Upload Video</label>
+            <input type="file" id="video-upload" accept="video/*">
+        </div>
+        
+        <div class="info" id="original-info">
+            No video selected
+        </div>
+        
+        <div class="video-container">
+            <video id="video-preview" controls style="display: none;"></video>
+            <div id="video-message">Upload a video to begin</div>
+        </div>
+        
+        <div class="input-group">
+            <label for="width">Width (pixels)</label>
+            <input type="number" id="width" placeholder="Enter width" disabled>
+        </div>
+        
+        <div class="input-group">
+            <label for="height">Height (pixels)</label>
+            <input type="number" id="height" placeholder="Enter height" disabled>
+        </div>
+        
+        <div class="input-group">
+            <label>
+                <input type="checkbox" id="maintain-ratio" checked>
+                Maintain aspect ratio
+            </label>
+        </div>
+        
+        <button id="resize-btn" disabled>Resize Video</button>
+        
+        <div class="info" id="new-dimensions"></div>
+        
+        <button id="download-btn" disabled>Download Resized Video (MP4)</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Elements
+        const videoUpload = document.getElementById('video-upload');
+        const videoPreview = document.getElementById('video-preview');
+        const videoMessage = document.getElementById('video-message');
+        const widthInput = document.getElementById('width');
+        const heightInput = document.getElementById('height');
+        const maintainRatio = document.getElementById('maintain-ratio');
+        const resizeBtn = document.getElementById('resize-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const originalInfo = document.getElementById('original-info');
+        const newDimensions = document.getElementById('new-dimensions');
+        const statusEl = document.getElementById('status');
+        
+        // Variables
+        let videoFile = null;
+        let originalWidth = 0;
+        let originalHeight = 0;
+        let aspectRatio = 0;
+        let resizedVideoBlob = null;
+        
+        // Event listeners
+        videoUpload.addEventListener('change', handleVideoUpload);
+        widthInput.addEventListener('input', handleWidthChange);
+        heightInput.addEventListener('input', handleHeightChange);
+        resizeBtn.addEventListener('click', resizeVideo);
+        downloadBtn.addEventListener('click', downloadVideo);
+        
+        // Functions
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                showStatus("No file selected", "error");
+                return;
+            }
+            
+            // Clear previous video if any
+            videoFile = file;
+            videoMessage.style.display = 'none';
+            videoPreview.style.display = 'block';
+            
+            // Create and set video source
+            const videoURL = URL.createObjectURL(file);
+            videoPreview.src = videoURL;
+            
+            // Show loading status
+            showStatus("Loading video...", "progress");
+            
+            // Wait for video metadata to load
+            videoPreview.onloadedmetadata = function() {
+                originalWidth = videoPreview.videoWidth;
+                originalHeight = videoPreview.videoHeight;
+                aspectRatio = originalWidth / originalHeight;
+                
+                // Update UI
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                originalInfo.textContent = `Original: ${originalWidth}x${originalHeight} (${fileSizeMB} MB)`;
+                
+                // Set initial values
+                widthInput.value = originalWidth;
+                heightInput.value = originalHeight;
+                
+                // Enable inputs and buttons
+                widthInput.disabled = false;
+                heightInput.disabled = false;
+                resizeBtn.disabled = false;
+                
+                showStatus("Video loaded successfully!", "success");
+            };
+            
+            // Handle errors
+            videoPreview.onerror = function() {
+                showStatus("Error loading video. Please try another file.", "error");
+                videoMessage.style.display = 'block';
+                videoPreview.style.display = 'none';
+            };
+        }
+        
+        function handleWidthChange() {
+            if (maintainRatio.checked && widthInput.value > 0) {
+                const newWidth = parseInt(widthInput.value);
+                heightInput.value = Math.round(newWidth / aspectRatio);
+            }
+        }
+        
+        function handleHeightChange() {
+            if (maintainRatio.checked && heightInput.value > 0) {
+                const newHeight = parseInt(heightInput.value);
+                widthInput.value = Math.round(newHeight * aspectRatio);
+            }
+        }
+        
+        function resizeVideo() {
+            if (!videoFile) {
+                showStatus("No video selected", "error");
+                return;
+            }
+            
+            const newWidth = parseInt(widthInput.value) || originalWidth;
+            const newHeight = parseInt(heightInput.value) || originalHeight;
+            
+            showStatus("Resizing video. This may take a while for large videos...", "progress");
+            
+            // Create canvas for processing
+            const canvas = document.createElement('canvas');
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Ensure video is ready
+            if (videoPreview.readyState < 2) {
+                videoPreview.addEventListener('loadeddata', function() {
+                    processVideoForResize(canvas, ctx, newWidth, newHeight);
+                });
+            } else {
+                processVideoForResize(canvas, ctx, newWidth, newHeight);
+            }
+        }
+        
+        function processVideoForResize(canvas, ctx, width, height) {
+            // Reset video to beginning
+            videoPreview.currentTime = 0;
+            
+            // Create a media stream from the canvas
+            const stream = canvas.captureStream();
+            
+            // Create media recorder with good compatibility
+            // Try MP4 MIME types first
+            let chunks = [];
+            let mediaRecorder;
+            let mimeType = '';
+            
+            // Test various MIME types to find one that works (including MP4 options)
+            const mimeTypes = [
+                'video/mp4',
+                'video/x-matroska;codecs=avc1',
+                'video/webm;codecs=h264',
+                'video/webm;codecs=vp9',
+                'video/webm;codecs=vp8',
+                'video/webm'
+            ];
+            
+            for (let type of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    mimeType = type;
+                    break;
+                }
+            }
+            
+            if (!mimeType) {
+                showStatus("Your browser doesn't support any compatible video format. Try Chrome or Firefox.", "error");
+                return;
+            }
+            
+            try {
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: mimeType,
+                    videoBitsPerSecond: 2500000
+                });
+            } catch (e) {
+                showStatus("Video encoding error. Try a different browser.", "error");
+                return;
+            }
+            
+            mediaRecorder.ondataavailable = function(e) {
+                chunks.push(e.data);
+            };
+            
+            mediaRecorder.onstop = function() {
+                // Create a blob with the recorded data
+                resizedVideoBlob = new Blob(chunks, { type: mimeType });
+                
+                // Update UI
+                const resizedSizeMB = (resizedVideoBlob.size / (1024 * 1024)).toFixed(2);
+                newDimensions.textContent = `Resized: ${width}x${height} (${resizedSizeMB} MB)`;
+                downloadBtn.disabled = false;
+                
+                // Update video preview with the resized version
+                videoPreview.src = URL.createObjectURL(resizedVideoBlob);
+                
+                showStatus(`Video resized successfully! (Format: ${mimeType.split(';')[0]})`, "success");
+            };
+            
+            // Start recording
+            mediaRecorder.start();
+            
+            // Play the video
+            const playPromise = videoPreview.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    // Auto-play was prevented, try again with user interaction
+                    showStatus("Click anywhere on the page and try again", "error");
+                    document.body.addEventListener('click', function playOnClick() {
+                        videoPreview.play();
+                        document.body.removeEventListener('click', playOnClick);
+                    }, { once: true });
+                });
+            }
+            
+            // Draw video frames to canvas at specified size
+            function drawFrame() {
+                if (videoPreview.paused || videoPreview.ended) {
+                    mediaRecorder.stop();
+                    return;
+                }
+                
+                ctx.drawImage(videoPreview, 0, 0, width, height);
+                requestAnimationFrame(drawFrame);
+            }
+            
+            drawFrame();
+            
+            // Stop when video ends
+            videoPreview.onended = function() {
+                mediaRecorder.stop();
+                videoPreview.pause();
+            };
+        } 
+        
+        function downloadVideo() {
+            if (!resizedVideoBlob) {
+                showStatus("No resized video available", "error");
+                return;
+            }
+            
+            const url = URL.createObjectURL(resizedVideoBlob);
+            const a = document.createElement('a');
+            
+            a.href = url;
+            a.download = getResizedFilename(videoFile.name);
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            showStatus("Download started!", "success");
+        }
+        
+        function getResizedFilename(originalName) {
+            const dotIndex = originalName.lastIndexOf('.');
+            if (dotIndex === -1) return originalName + "-resized.mp4";
+            
+            const nameWithoutExt = originalName.substring(0, dotIndex);
+            return nameWithoutExt + "-resized.mp4";
+        }
+        
+        function showStatus(message, type) {
+            statusEl.textContent = message;
+            statusEl.className = type || "";
+        }
+    </script>
+</body>
+</html>

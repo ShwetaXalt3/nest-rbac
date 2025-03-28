@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management System</title>
     <style>
+        /* Existing styles from the original document */
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
@@ -131,12 +132,54 @@
         .role-form button {
             padding: 8px 15px;
         }
+
+        /* Profile Page Additional Styles */
+        .profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            margin-right: 20px;
+        }
+        .profile-info {
+            flex-grow: 1;
+        }
+        .profile-details {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .detail-label {
+            font-weight: bold;
+            width: 150px;
+            color: #555;
+        }
+        .detail-value {
+            flex-grow: 1;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>User Management System</h1>
         
+        <!-- Authentication Container (Login/Register) -->
         <div id="auth-container">
             <div class="tabs">
                 <div class="tab active" data-tab="login">Login</div>
@@ -185,6 +228,7 @@
             </div>
         </div>
         
+        <!-- Admin Panel -->
         <div id="admin-panel" class="admin-panel hidden">
             <div class="user-info">
                 <h2>Welcome, <span id="username-display"></span>!</h2>
@@ -210,13 +254,61 @@
                 </table>
             </div>
         </div>
+
+        <!-- Profile Container -->
+        <div id="profile-container" class="hidden">
+            <div class="profile-header">
+                <div class="profile-avatar" id="user-avatar">
+                    <span id="avatar-initials"></span>
+                </div>
+                <div class="profile-info">
+                    <h1 id="profile-username">Username</h1>
+                    <div>
+                        <button id="edit-profile-btn" class="edit-btn">Edit Profile</button>
+                        <button id="profile-logout-btn" class="logout-btn">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-details">
+                <div class="detail-row">
+                    <div class="detail-label">User ID</div>
+                    <div class="detail-value" id="profile-user-id"></div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Role</div>
+                    <div class="detail-value" id="profile-user-role"></div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Email</div>
+                    <div class="detail-value" id="profile-email">Not provided</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Joined Date</div>
+                    <div class="detail-value" id="profile-join-date">Not available</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Profile Container -->
+        <div id="edit-profile-container" class="hidden">
+            <h2>Edit Profile</h2>
+            <form id="edit-profile-form">
+                <div class="form-group">
+                    <label for="edit-email">Email:</label>
+                    <input type="email" id="edit-email" name="email">
+                </div>
+                <button type="submit">Save Changes</button>
+                <button type="button" id="cancel-edit-btn">Cancel</button>
+            </form>
+        </div>
     </div>
 
     <script>
         // Base URL for API
         const API_BASE_URL = 'http://localhost:5000';
         
-        // DOM Elements
+        // DOM Elements - Combine existing and new elements
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
         const loginForm = document.getElementById('login-form');
@@ -228,8 +320,23 @@
         const adminPanel = document.getElementById('admin-panel');
         const adminContent = document.getElementById('admin-content');
         const usernameDisplay = document.getElementById('username-display');
-        const logoutBtn = document.getElementById('logout-btn');
+        const logoutBtns = document.querySelectorAll('[id$="-logout-btn"]');
         const usersTable = document.getElementById('users-table').querySelector('tbody');
+        
+        // Profile specific elements
+        const profileContainer = document.getElementById('profile-container');
+        const editProfileContainer = document.getElementById('edit-profile-container');
+        const editProfileBtn = document.getElementById('edit-profile-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const editProfileForm = document.getElementById('edit-profile-form');
+
+        // Profile display elements
+        const profileUsernameDisplay = document.getElementById('profile-username');
+        const profileUserIdDisplay = document.getElementById('profile-user-id');
+        const profileUserRoleDisplay = document.getElementById('profile-user-role');
+        const profileEmailDisplay = document.getElementById('profile-email');
+        const profileJoinDateDisplay = document.getElementById('profile-join-date');
+        const avatarInitials = document.getElementById('avatar-initials');
         
         // Current user data
         let currentUser = null;
@@ -258,7 +365,19 @@
             });
         });
         
-        // Register form submission
+        // Show message helper function
+        function showMessage(element, message, type = 'success') {
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.classList.remove('hidden');
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Register form submission (existing code)
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -292,7 +411,7 @@
             }
         });
         
-        // Login form submission
+        // Login form submission - Updated to handle profile redirection
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -319,13 +438,19 @@
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     localStorage.setItem('authToken', authToken);
                     
-                    // Show admin panel
-                    authContainer.classList.add('hidden');
-                    adminPanel.classList.remove('hidden');
-                    usernameDisplay.textContent = currentUser.username;
-                    
-                    // If admin or superadmin, load users
-                    if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+                    // Redirect or show panel based on role
+                    if (currentUser.role === 'user') {
+                        // Fetch and show user profile
+                        await fetchUserProfile();
+                        authContainer.classList.add('hidden');
+                        profileContainer.classList.remove('hidden');
+                    } else if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+                        // Show admin panel
+                        authContainer.classList.add('hidden');
+                        adminPanel.classList.remove('hidden');
+                        usernameDisplay.textContent = currentUser.username;
+                        
+                        // Load users for admin
                         adminContent.classList.remove('hidden');
                         loadUsers();
                     }
@@ -339,27 +464,120 @@
                 console.error('Error:', error);
             }
         });
-        
-        // Logout button
-        logoutBtn.addEventListener('click', () => {
-            // Clear user data
-            currentUser = null;
-            authToken = null;
+
+        // Fetch user profile
+        async function fetchUserProfile() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/profile`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    displayUserProfile(userData);
+                } else {
+                    showMessage(loginMessage, 'Failed to fetch profile.', 'error');
+                }
+            } catch (error) {
+                console.error('Profile fetch error:', error);
+                showMessage(loginMessage, 'Error fetching profile.', 'error');
+            }
+        }
+
+        // Display user profile
+        function displayUserProfile(userData) {
+            profileUsernameDisplay.textContent = userData.username;
+            profileUserIdDisplay.textContent = userData.id;
+            profileUserRoleDisplay.textContent = userData.role;
             
-            // Clear localStorage
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('authToken');
+            // Set avatar initials
+            avatarInitials.textContent = userData.username.charAt(0).toUpperCase();
+
+            // Update email and join date if available
+            profileEmailDisplay.textContent = userData.email || 'Not provided';
             
-            // Show auth container
-            adminPanel.classList.add('hidden');
-            adminContent.classList.add('hidden');
-            authContainer.classList.remove('hidden');
+            // Optional: format join date if available
+            if (userData.createdAt) {
+                profileJoinDateDisplay.textContent = new Date(userData.createdAt).toLocaleDateString();
+            }
+
+            // Populate edit form
+            document.getElementById('edit-email').value = userData.email || '';
+        }
+
+        // Edit profile button
+        editProfileBtn.addEventListener('click', () => {
+            profileContainer.classList.add('hidden');
+            editProfileContainer.classList.remove('hidden');
+        });
+
+        // Cancel edit
+        cancelEditBtn.addEventListener('click', () => {
+            profileContainer.classList.remove('hidden');
+            editProfileContainer.classList.add('hidden');
+        });
+
+        // Edit profile form submission
+        editProfileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
             
-            // Clear tables
-            usersTable.innerHTML = '';
+            const email = document.getElementById('edit-email').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/profile/update`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                if (response.ok) {
+                    showMessage(loginMessage, 'Profile updated successfully!');
+                    
+                    // Refresh profile
+                    await fetchUserProfile();
+                    
+                    // Switch back to profile view
+                    profileContainer.classList.remove('hidden');
+                    editProfileContainer.classList.add('hidden');
+                } else {
+                    const errorData = await response.json();
+                    showMessage(loginMessage, errorData.message || 'Failed to update profile', 'error');
+                }
+            } catch (error) {
+                console.error('Profile update error:', error);
+                showMessage(loginMessage, 'Error updating profile.', 'error');
+            }
         });
         
-        // Load users for admin
+        // Logout functionality for all logout buttons
+        logoutBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Clear user data
+                currentUser = null;
+                authToken = null;
+                
+                // Clear localStorage
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('authToken');
+                
+                // Reset views
+                adminPanel.classList.add('hidden');
+                adminContent.classList.add('hidden');
+                profileContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+                
+                // Clear tables
+                usersTable.innerHTML = '';
+            });
+        });
+
+        // Load users for admin (existing code)
         async function loadUsers() {
             try {
                 const response = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -382,7 +600,7 @@
             }
         }
         
-        // Render users table
+        // Render users table (existing code)
         function renderUsersTable(users) {
             usersTable.innerHTML = '';
             
@@ -443,7 +661,7 @@
             });
         }
         
-        // Update user role using the PUT API
+        // Update user role (existing code)
         async function updateUserRole(userId) {
             const roleSelect = document.getElementById(`role-select-${userId}`);
             const newRole = roleSelect.value;
@@ -474,18 +692,6 @@
             }
         }
         
-        // Show message helper function
-        function showMessage(element, message, type) {
-            element.textContent = message;
-            element.className = `message ${type}`;
-            element.classList.remove('hidden');
-            
-            // Hide message after 5 seconds
-            setTimeout(() => {
-                element.classList.add('hidden');
-            }, 5000);
-        }
-        
         // Check for saved session on page load
         window.addEventListener('DOMContentLoaded', () => {
             // Try to restore session from localStorage
@@ -498,13 +704,17 @@
                     currentUser = JSON.parse(savedUser);
                     authToken = savedToken;
                     
-                    // Update UI
-                    authContainer.classList.add('hidden');
-                    adminPanel.classList.remove('hidden');
-                    usernameDisplay.textContent = currentUser.username;
-                    
-                    // If admin or superadmin, load users
-                    if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+                    // Restore view based on user role
+                    if (currentUser.role === 'user') {
+                        authContainer.classList.add('hidden');
+                        fetchUserProfile();
+                        profileContainer.classList.remove('hidden');
+                    } else if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+                        authContainer.classList.add('hidden');
+                        adminPanel.classList.remove('hidden');
+                        usernameDisplay.textContent = currentUser.username;
+                        
+                        // If admin or superadmin, load users
                         adminContent.classList.remove('hidden');
                         loadUsers();
                     }
