@@ -17,6 +17,7 @@ export class AuthService {
   
 
   async registration(username: string, password: string, role: string): Promise<DataStore> {
+    
     if (role.toLowerCase() === "admin") {
       throw new HttpException(
         "You can only register as a user. Admins must assign roles.",
@@ -42,11 +43,19 @@ export class AuthService {
   async login(username: string, password: string) {
     const user = await this.userRepository.findOne({ where: { username } })
 
+    console.log(user);
+    console.log("Pass" , password);
+    
+    
+
     if (!user) {
       throw new HttpException('Invalid Username', HttpStatus.UNAUTHORIZED);
 
     }
     const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    console.log(isPasswordValid);
+    
     
     if (!isPasswordValid) {
       throw new HttpException('Invalid Password', HttpStatus.UNAUTHORIZED);
